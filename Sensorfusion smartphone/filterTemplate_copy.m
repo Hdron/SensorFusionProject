@@ -36,10 +36,16 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
    T = 1/100; % 100 Hz
    
    g0 = [-0.0517   -0.1908    9.6525]'; % From experiments
+   g0 = [-0.0933   -0.0482    9.6691]';
+   g0 = [0 0 9.81]';
 
-   Ra = (10^-3) * [0.4204    0.0270    0.1322;
+   Ra = (10^-3) .* [0.4204    0.0270    0.1322;
                    0.0270    0.1983    0.0202;
                    0.1322    0.0202    0.4669];
+               
+   Rm = [0.7273   -0.0784   -0.0564;
+        -0.0784    0.5335    0.0332;
+        -0.0564    0.0332    0.6115];
 
   % Current filter state. (prior)
   x = [1; 0; 0 ;0];
@@ -88,20 +94,32 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
 
       acc = data(1, 2:4)';
       if ~any(isnan(acc))  % Acc measurements are available.
-        % Do something
-        [x, P] = mu_g(x, P, acc, Ra, g0)
+        % If outlier acc
+        tol_a = 0.5;
+        tol_f = 0.2;
+        if norm(acc-g0) > tol_a  && norm(gyr) < tol_f
+            ownView.setAccDist(true);
+        else
+            ownView.setAccDist(false);
+            [x, P] = mu_g(x, P, acc, Ra, g0);
+            [x, P] = mu_normalizeQ(x, P);
+        end
         
       end
       gyr = data(1, 5:7)';
       if ~any(isnan(gyr))  % Gyro measurements are available.
         % Do something
         [x, P] = tu_qw(x, P, gyr, T, Rw);
-        [x, P] = mu_normalizeQ(x, P)
+        [x, P] = mu_normalizeQ(x, P);
       end
 
       mag = data(1, 8:10)';
       if ~any(isnan(mag))  % Mag measurements are available.
-        % Do something
+        % Bias estimation
+         m0 = [0 sqrt(mag(1)^2+mag(2)^2) mag(3)]';
+         % Update step
+%         [x, P] = mu_m(x, P, mag, m0,Rm);
+%         [x, P] = mu_normalizeQ(x, P);
       end
 
       orientation = data(1, 18:21)';  % Google's orientation estimate.
