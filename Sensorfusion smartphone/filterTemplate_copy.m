@@ -22,13 +22,20 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
 
   %% Setup necessary infrastructure
   import('com.liu.sensordata.*');  % Used to receive data.
+%   m = mobiledev;
 
   %% Filter settings
   t0 = [];  % Initial time (initialize on first data received)
   nx = 4;   % Assuming that you use q as state variable.
   % Add your filter settings here.
+  % Process noise error covariance from experiments
+  Rw = (10^-5).*[0.0954    0.0599   -0.0053;
+        0.0599    0.6448   -0.0183;
+       -0.0053   -0.0183    0.0718];
+   
+   T = 1/100; % 100 Hz
 
-  % Current filter state.
+  % Current filter state. (prior)
   x = [1; 0; 0 ;0];
   P = eye(nx, nx);
 
@@ -77,10 +84,13 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
       if ~any(isnan(acc))  % Acc measurements are available.
         % Do something
         
+        
       end
       gyr = data(1, 5:7)';
       if ~any(isnan(gyr))  % Gyro measurements are available.
         % Do something
+        [x, P] = tu_qw(x, P, gyr, T, Rw);
+        [x, P] = mu_normalizeQ(x, P)
       end
 
       mag = data(1, 8:10)';
