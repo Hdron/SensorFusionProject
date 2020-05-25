@@ -29,27 +29,30 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
   nx = 4;   % Assuming that you use q as state variable.
   % Add your filter settings here.
   % Process noise error covariance from experiments
-  Rw = (10^-5).*[0.0954    0.0599   -0.0053;
-        0.0599    0.6448   -0.0183;
-       -0.0053   -0.0183    0.0718];
+  Rw = (10^-5).*[0.0025    0.0140   -0.0000;
+    0.0140    0.1796   -0.0004;
+   -0.0000   -0.0004    0.0007];
+   
    
    T = 1/100; % 100 Hz
    
    g0 = [-0.0517   -0.1908    9.6525]'; % From experiments
-   g0 = [-0.0933   -0.0482    9.6691]';
-   g0 = [0 0 9.81]';
 
    Ra = (10^-3) .* [0.4204    0.0270    0.1322;
-                   0.0270    0.1983    0.0202;
-                   0.1322    0.0202    0.4669];
+    0.0270    0.1983    0.0202;
+    0.1322    0.0202    0.4669];
+               
                
    Rm = [0.7273   -0.0784   -0.0564;
         -0.0784    0.5335    0.0332;
         -0.0564    0.0332    0.6115];
+    
+
 
   % Current filter state. (prior)
   x = [1; 0; 0 ;0];
-  P = eye(nx, nx);
+  P = 10*eye(nx, nx); % Increase prior since no idea of start
+ 
 
   % Saved filter states.
   xhat = struct('t', zeros(1, 0),...
@@ -95,8 +98,8 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
       acc = data(1, 2:4)';
       if ~any(isnan(acc))  % Acc measurements are available.
         % If outlier acc
-        tol_a = 0.5;
-        tol_f = 0.2;
+        tol_a = 0.05;
+        tol_f = 0.01; % Ensure movement
         if norm(acc-g0) > tol_a  && norm(gyr) < tol_f
             ownView.setAccDist(true);
         else
@@ -117,13 +120,24 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
       if ~any(isnan(mag))  % Mag measurements are available.
         % Bias estimation
          m0 = [0 sqrt(mag(1)^2+mag(2)^2) mag(3)]';
+         
+        tol_m = 70; % Based on test 2
+        
+        if norm(mag) > tol_m 
+            ownView.setMagDist(true);
+        else
+            ownView.setMagDist(false);
          % Update step
-%         [x, P] = mu_m(x, P, mag, m0,Rm);
-%         [x, P] = mu_normalizeQ(x, P);
+         [x, P] = mu_m(x, P, mag, m0, Rm);
+         [x, P] = mu_normalizeQ(x, P);
+        end
       end
+     
+
 
       orientation = data(1, 18:21)';  % Google's orientation estimate.
 
+      
       % Visualize result
       if rem(counter, 10) == 0
         setOrientation(ownView, x(1:4));
@@ -139,6 +153,7 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
         end
       end
       counter = counter + 1;
+     
 
       % Save estimates
       xhat.x(:, end+1) = x;
@@ -150,6 +165,8 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
       meas.gyr(:, end+1) = gyr;
       meas.mag(:, end+1) = mag;
       meas.orient(:, end+1) = orientation;
+
+      
     end
   catch e
     fprintf(['Unsuccessful connecting to client!\n' ...
