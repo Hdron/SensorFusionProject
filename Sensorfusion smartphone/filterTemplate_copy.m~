@@ -35,8 +35,8 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
    
    T = 1/100; % 100 Hz
    
-   g0 = [-0.0517   -0.1908    9.6525]'; % From experiments
-
+   g0 = [-0.0517   -0.1908    9.6525]';
+   g0 = 
    Ra = (10^-3) * [0.4204    0.0270    0.1322;
                    0.0270    0.1983    0.0202;
                    0.1322    0.0202    0.4669];
