@@ -19,16 +19,16 @@ euler = q2euler(xhat.x);
 Orient = q2euler(Orient');
 
 xyz = {'x','y','z'};
-
+index = [3,2,1];
 figure(1);
 for i=1:3
     subplot(1,3,i)
     hold on;
-    plot(xhat.t,euler(i,:));
-    plot(TOrient,Orient(i,:));
+    plot(xhat.t,euler(index(i),:));
+    plot(TOrient,Orient(index(i),:));
     hold off;
     legend('euler', 'Google')
     title(xyz{i})
-    xlabel('rad')
-    ylabel('time')
+    ylabel('rad')
+    xlabel('time')
 end

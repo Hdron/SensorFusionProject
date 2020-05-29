@@ -28,15 +28,11 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
   t0 = [];  % Initial time (initialize on first data received)
   nx = 4;   % Assuming that you use q as state variable.
   % Add your filter settings here.
+  
   % Process noise error covariance from experiments
-  Rw = (10^-5).*[0.0025    0.0140   -0.0000;
+  Rw = (10^-3).*[0.0025    0.0140   -0.0000;
     0.0140    0.1796   -0.0004;
    -0.0000   -0.0004    0.0007];
-   
-   
-   T = 1/100; % 100 Hz
-   
-   g0 = [-0.0517   -0.1908    9.6525]'; % From experiments
 
    Ra = (10^-3) .* [0.4204    0.0270    0.1322;
     0.0270    0.1983    0.0202;
@@ -46,12 +42,19 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
    Rm = [0.7273   -0.0784   -0.0564;
         -0.0784    0.5335    0.0332;
         -0.0564    0.0332    0.6115];
-    
 
+    % Sampling time
+   T = 1/100; % 100 Hz
+   
+   % From experiments mean(acc)
+   g0 = [-0.0933   -0.0482    9.6691]';
+   
+   % Mgnetic field initial magnitude norm(mag) from experiments
+   Lk = 60;
 
   % Current filter state. (prior)
   x = [1; 0; 0 ;0];
-  P = 10*eye(nx, nx); % Increase prior since no idea of start
+  P = eye(nx, nx); % Increase prior since no idea of start
  
 
   % Saved filter states.
@@ -94,13 +97,13 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
       if isempty(t0)  % Initialize t0
         t0 = t;
       end
-
+      
+      
       acc = data(1, 2:4)';
       if ~any(isnan(acc))  % Acc measurements are available.
         % If outlier acc
-        tol_a = 0.05;
-        tol_f = 0.01; % Ensure movement
-        if norm(acc-g0) > tol_a  && norm(gyr) < tol_f
+        tol_a = 1;
+        if abs(sum(acc)-9.81) > tol_a 
             ownView.setAccDist(true);
         else
             ownView.setAccDist(false);
@@ -109,12 +112,17 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
         end
         
       end
+      
       gyr = data(1, 5:7)';
       if ~any(isnan(gyr))  % Gyro measurements are available.
         % Do something
         [x, P] = tu_qw(x, P, gyr, T, Rw);
         [x, P] = mu_normalizeQ(x, P);
+      else
+         [x, P] = tu_qw_no_omega(x, P, T, Rw)
+         [x, P] = mu_normalizeQ(x, P);
       end
+
 
       mag = data(1, 8:10)';
       if ~any(isnan(mag))  % Mag measurements are available.
@@ -122,8 +130,11 @@ function [xhat, meas] = filterTemplate_copy(calAcc, calGyr, calMag)
          m0 = [0 sqrt(mag(1)^2+mag(2)^2) mag(3)]';
          
         tol_m = 70; % Based on test 2
+        alpha = 0.1; % trust the previouse magnitude more
         
-        if norm(mag) > tol_m 
+        Lk = (1-alpha)*Lk + alpha*m0; % Magnitude of magnetic field
+        
+        if norm(Lk) > tol_m 
             ownView.setMagDist(true);
         else
             ownView.setMagDist(false);
